@@ -1,9 +1,9 @@
 ﻿// Copyright (c) DGP Studio. All rights reserved.
 // Licensed under the MIT license.
 
-using CommunityToolkit.WinUI.Notifications;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Windows.AppLifecycle;
+using Microsoft.Windows.AppNotifications;
 using Snap.Hutao.Core.Setting;
 using Snap.Hutao.Service.DailyNote;
 using Snap.Hutao.Service.Hutao;
@@ -23,24 +23,9 @@ namespace Snap.Hutao.Core.LifeCycle;
 [SuppressMessage("", "CA1001")]
 internal sealed partial class Activation : IActivation
 {
-    /// <summary>
-    /// 操作
-    /// </summary>
     public const string Action = nameof(Action);
-
-    /// <summary>
-    /// Uid
-    /// </summary>
     public const string Uid = nameof(Uid);
-
-    /// <summary>
-    /// 启动游戏启动参数
-    /// </summary>
     public const string LaunchGame = nameof(LaunchGame);
-
-    /// <summary>
-    /// 从剪贴板导入成就
-    /// </summary>
     public const string ImportUIAFFromClipboard = nameof(ImportUIAFFromClipboard);
 
     private const string CategoryAchievement = "ACHIEVEMENT";
@@ -52,50 +37,50 @@ internal sealed partial class Activation : IActivation
     private readonly ICurrentWindowReference currentWindowReference;
     private readonly ITaskContext taskContext;
     private readonly SemaphoreSlim activateSemaphore = new(1);
-
-    /// <inheritdoc/>
-    public void Activate(object? sender, AppActivationArguments args)
-    {
-        _ = sender;
-        if (!ToastNotificationManagerCompat.WasCurrentProcessToastActivated())
-        {
-            HandleActivationAsync(args, true).SafeForget();
-        }
-    }
+    private readonly AppNotificationManager appNotificationManager = AppNotificationManager.Default;
 
     /// <inheritdoc/>
     public void NonRedirectToActivate(object? sender, AppActivationArguments args)
     {
-        _ = sender;
-        if (!ToastNotificationManagerCompat.WasCurrentProcessToastActivated())
-        {
-            HandleActivationAsync(args, false).SafeForget();
-        }
+        HandleActivationAsync(args, false).SafeForget();
     }
 
     /// <inheritdoc/>
     public void InitializeWith(AppInstance appInstance)
     {
-        appInstance.Activated += Activate;
-        ToastNotificationManagerCompat.OnActivated += NotificationActivate;
+        appInstance.Activated += OnAppInstanceActivate;
+        appNotificationManager.NotificationInvoked += OnAppNotificationManagerNotificationInvoked;
+        appNotificationManager.Register();
     }
 
-    private void NotificationActivate(ToastNotificationActivatedEventArgsCompat args)
+    private void OnAppInstanceActivate(object? sender, AppActivationArguments args)
     {
-        ToastArguments toastArgs = ToastArguments.Parse(args.Argument);
+        HandleActivationAsync(args, true).SafeForget();
+    }
 
-        if (toastArgs.TryGetValue(Action, out string? action))
+    private void OnAppNotificationManagerNotificationInvoked(AppNotificationManager manager, AppNotificationActivatedEventArgs args)
+    {
+        IDictionary<string, string> arguments = args.Arguments;
+        HandleAppNotificationActivationAsync(arguments).SafeForget();
+    }
+
+    private async ValueTask HandleAppNotificationActivationAsync(IDictionary<string, string> arguments)
+    {
+        if (arguments.TryGetValue(Action, out string? action))
         {
             if (action == LaunchGame)
             {
-                _ = toastArgs.TryGetValue(Uid, out string? uid);
-                HandleLaunchGameActionAsync(uid).SafeForget();
+                if (arguments.TryGetValue(Uid, out string? uid))
+                {
+                    await HandleLaunchGameActionAsync(uid).ConfigureAwait(false);
+                }
             }
         }
     }
 
     private async ValueTask HandleActivationAsync(AppActivationArguments args, bool isRedirected)
     {
+        // Refuse other activations
         if (activateSemaphore.CurrentCount > 0)
         {
             using (await activateSemaphore.EnterAsync().ConfigureAwait(false))
@@ -107,32 +92,42 @@ internal sealed partial class Activation : IActivation
 
     private async ValueTask HandleActivationCoreAsync(AppActivationArguments args, bool isRedirected)
     {
-        if (args.Kind == ExtendedActivationKind.Protocol)
+        switch (args.Kind)
         {
-            if (args.TryGetProtocolActivatedUri(out Uri? uri))
-            {
-                await HandleUrlActivationAsync(uri, isRedirected).ConfigureAwait(false);
-            }
-        }
-        else if (args.Kind == ExtendedActivationKind.Launch)
-        {
-            if (args.TryGetLaunchActivatedArgument(out string? arguments))
-            {
-                switch (arguments)
+            case ExtendedActivationKind.Launch:
+                if (args.TryGetLaunchActivatedArgument(out string? command))
                 {
-                    case LaunchGame:
-                        {
-                            await HandleLaunchGameActionAsync().ConfigureAwait(false);
-                            break;
-                        }
+                    switch (command)
+                    {
+                        case LaunchGame:
+                            {
+                                await HandleLaunchGameActionAsync().ConfigureAwait(false);
+                                break;
+                            }
 
-                    default:
-                        {
-                            await HandleNormalLaunchActionAsync().ConfigureAwait(false);
-                            break;
-                        }
+                        default:
+                            {
+                                await HandleNormalLaunchActionAsync().ConfigureAwait(false);
+                                break;
+                            }
+                    }
                 }
-            }
+
+                break;
+            case ExtendedActivationKind.AppNotification:
+                if (args.TryGetAppNotificationActivatedArgument(out IDictionary<string, string>? arguments))
+                {
+                    await HandleAppNotificationActivationAsync(arguments).ConfigureAwait(false);
+                }
+
+                break;
+            case ExtendedActivationKind.Protocol:
+                if (args.TryGetProtocolActivatedUri(out Uri? uri))
+                {
+                    await HandleUrlActivationAsync(uri, isRedirected).ConfigureAwait(false);
+                }
+
+                break;
         }
     }
 
@@ -212,8 +207,6 @@ internal sealed partial class Activation : IActivation
 
     private async ValueTask HandleAchievementActionAsync(string action, string parameter, bool isRedirected)
     {
-        _ = parameter;
-        _ = isRedirected;
         switch (action)
         {
             case UrlActionImport:
@@ -232,7 +225,6 @@ internal sealed partial class Activation : IActivation
 
     private async ValueTask HandleDailyNoteActionAsync(string action, string parameter, bool isRedirected)
     {
-        _ = parameter;
         switch (action)
         {
             case UrlActionRefresh:

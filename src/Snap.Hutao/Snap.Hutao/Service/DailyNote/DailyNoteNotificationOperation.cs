@@ -1,7 +1,8 @@
 ﻿// Copyright (c) DGP Studio. All rights reserved.
 // Licensed under the MIT license.
 
-using CommunityToolkit.WinUI.Notifications;
+using Microsoft.Windows.AppNotifications;
+using Microsoft.Windows.AppNotifications.Builder;
 using Snap.Hutao.Core;
 using Snap.Hutao.Core.LifeCycle;
 using Snap.Hutao.Model.Entity;
@@ -63,18 +64,16 @@ internal sealed partial class DailyNoteNotificationOperation
             }
         }
 
-        ToastContentBuilder builder = new ToastContentBuilder()
-            .AddHeader(ToastHeaderIdArgument, SH.ServiceDailyNoteNotifierTitle, ToastHeaderIdArgument)
-            .AddAttributionText(attribution)
-            .AddButton(new ToastButton()
-                .SetContent(SH.ServiceDailyNoteNotifierActionLaunchGameButton)
+        AppNotificationBuilder builder = new AppNotificationBuilder()
+            .AddText(SH.ServiceDailyNoteNotifierTitle, new AppNotificationTextProperties().SetMaxLines(1))
+            .SetAttributionText(attribution)
+            .AddButton(new AppNotificationButton(SH.ServiceDailyNoteNotifierActionLaunchGameButton)
                 .AddArgument(Activation.Action, Activation.LaunchGame)
-                .AddArgument(Activation.Uid, entry.Uid))
-            .AddButton(new ToastButtonDismiss(SH.ServiceDailyNoteNotifierActionLaunchGameDismiss));
+                .AddArgument(Activation.Uid, entry.Uid));
 
         if (options.IsReminderNotification)
         {
-            builder.SetToastScenario(ToastScenario.Reminder);
+            builder.SetScenario(AppNotificationScenario.Reminder);
         }
 
         if (notifyInfos.Count > 2)
@@ -101,7 +100,7 @@ internal sealed partial class DailyNoteNotificationOperation
                     group.Children.Add(subgroup);
                 }
 
-                builder.AddVisualChild(group);
+                builder.SetGroup(group);
             }
         }
         else
@@ -121,14 +120,14 @@ internal sealed partial class DailyNoteNotificationOperation
         // Image limitation.
         // https://learn.microsoft.com/en-us/windows/apps/design/shell/tiles-and-notifications/send-local-toast?tabs=uwp#adding-images
         // NotifySuppressed judge
-        ChcekResinNotifySuppressed(entry, notifyInfos);
+        CheckResinNotifySuppressed(entry, notifyInfos);
         CheckHomeCoinNotifySuppressed(entry, notifyInfos);
         CheckDailyTaskNotifySuppressed(entry, notifyInfos);
         CheckTransformerNotifySuppressed(entry, notifyInfos);
         CheckExpeditionNotifySuppressed(entry, notifyInfos);
     }
 
-    private static void ChcekResinNotifySuppressed(DailyNoteEntry entry, List<DailyNoteNotifyInfo> notifyInfos)
+    private static void CheckResinNotifySuppressed(DailyNoteEntry entry, List<DailyNoteNotifyInfo> notifyInfos)
     {
         ArgumentNullException.ThrowIfNull(entry.DailyNote);
         if (entry.DailyNote.CurrentResin >= entry.ResinNotifyThreshold)

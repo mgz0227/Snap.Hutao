@@ -2,6 +2,7 @@
 // Licensed under the MIT license.
 
 using Microsoft.Windows.AppLifecycle;
+using Microsoft.Windows.AppNotifications;
 using Windows.ApplicationModel.Activation;
 
 namespace Snap.Hutao.Core.LifeCycle;
@@ -45,6 +46,18 @@ internal static class AppActivationArgumentsExtensions
         }
 
         arguments = launchArgs.Arguments.Trim();
+        return true;
+    }
+
+    public static bool TryGetAppNotificationActivatedArgument(this AppActivationArguments activatedEventArgs, [NotNullWhen(true)] out IDictionary<string, string>? arguments)
+    {
+        arguments = null;
+        if (activatedEventArgs.Data is not AppNotificationActivatedEventArgs launchArgs)
+        {
+            return false;
+        }
+
+        arguments = launchArgs.Arguments;
         return true;
     }
 }

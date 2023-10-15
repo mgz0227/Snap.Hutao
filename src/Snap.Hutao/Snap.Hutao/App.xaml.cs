@@ -52,8 +52,8 @@ public sealed partial class App : Application
             if (firstInstance.IsCurrent)
             {
                 // manually invoke
-                activation.NonRedirectToActivate(firstInstance, activatedEventArgs);
                 activation.InitializeWith(firstInstance);
+                activation.NonRedirectToActivate(firstInstance, activatedEventArgs);
 
                 LogDiagnosticInformation();
                 serviceProvider.GetRequiredService<IJumpListInterop>().ConfigureAsync().SafeForget();
