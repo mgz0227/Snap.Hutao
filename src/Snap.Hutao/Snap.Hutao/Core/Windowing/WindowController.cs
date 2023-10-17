@@ -8,9 +8,11 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Snap.Hutao.Core.Setting;
 using Snap.Hutao.Service;
+using Snap.Hutao.Win32;
 using System.IO;
 using Windows.Graphics;
 using Windows.UI;
+using Windows.UI.Core;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Dwm;
 using Windows.Win32.UI.WindowsAndMessaging;
@@ -55,6 +57,7 @@ internal sealed class WindowController
         ExtendsContentIntoTitleBar();
 
         RecoverOrInitWindowSize();
+        CoreWindow coreWindow = UnsafePInvoke.PrivateCreateCoreWindow("Snap Hutao CoreWindow", options.Hwnd);
         UpdateImmersiveDarkMode(options.TitleBar, default!);
 
         // appWindow.Show(true);
