@@ -300,7 +300,7 @@
   </ItemGroup>
   
   <ItemGroup>
-    <AdditionalFiles Include="Resource\Localization\SH.resx"/>
+    <AdditionalFiles Include="Resource\Localization\SH.resx" />
   </ItemGroup>
 
   <ItemGroup>
