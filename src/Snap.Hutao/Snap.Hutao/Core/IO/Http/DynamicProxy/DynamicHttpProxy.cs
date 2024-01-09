@@ -1,6 +1,7 @@
 // Copyright (c) DGP Studio. All rights reserved.
 // Licensed under the MIT license.
 
+using CommunityToolkit.Mvvm.ComponentModel;
 using Snap.Hutao.Win32.Registry;
 using System.Net;
 using System.Reflection;
@@ -8,7 +9,7 @@ using System.Reflection;
 namespace Snap.Hutao.Core.IO.Http.DynamicProxy;
 
 [Injection(InjectAs.Singleton)]
-internal sealed partial class DynamicHttpProxy : IWebProxy, IDisposable
+internal sealed partial class DynamicHttpProxy : ObservableObject, IWebProxy, IDisposable
 {
     private const string ProxySettingPath = @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings\Connections";
 
@@ -32,7 +33,7 @@ internal sealed partial class DynamicHttpProxy : IWebProxy, IDisposable
     {
         UpdateProxy();
 
-        watcher = new(ProxySettingPath, UpdateProxy);
+        watcher = new(ProxySettingPath, OnProxyChanged);
         watcher.Start();
     }
 
@@ -41,6 +42,17 @@ internal sealed partial class DynamicHttpProxy : IWebProxy, IDisposable
     {
         get => InnerProxy.Credentials;
         set => InnerProxy.Credentials = value;
+    }
+
+    public string CurrentProxy
+    {
+        get
+        {
+            Uri? proxyUri = GetProxy("https://hut.ao".ToUri());
+            return proxyUri is null
+                ? SH.ViewPageFeedbackCurrentProxyNoProxyDescription
+                : proxyUri.AbsoluteUri;
+        }
     }
 
     private IWebProxy InnerProxy
@@ -60,15 +72,6 @@ internal sealed partial class DynamicHttpProxy : IWebProxy, IDisposable
         }
     }
 
-    [MemberNotNull(nameof(innerProxy))]
-    public void UpdateProxy()
-    {
-        IWebProxy? proxy = ConstructSystemProxyMethod.Invoke(default, default) as IWebProxy;
-        ArgumentNullException.ThrowIfNull(proxy);
-
-        InnerProxy = proxy;
-    }
-
     public Uri? GetProxy(Uri destination)
     {
         return InnerProxy.GetProxy(destination);
@@ -83,5 +86,21 @@ internal sealed partial class DynamicHttpProxy : IWebProxy, IDisposable
     {
         (innerProxy as IDisposable)?.Dispose();
         watcher.Dispose();
+    }
+
+    public void OnProxyChanged()
+    {
+        UpdateProxy();
+
+        Ioc.Default.GetRequiredService<ITaskContext>().InvokeOnMainThread(() => OnPropertyChanged(nameof(CurrentProxy)));
+    }
+
+    [MemberNotNull(nameof(innerProxy))]
+    private void UpdateProxy()
+    {
+        IWebProxy? proxy = ConstructSystemProxyMethod.Invoke(default, default) as IWebProxy;
+        ArgumentNullException.ThrowIfNull(proxy);
+
+        InnerProxy = proxy;
     }
 }
