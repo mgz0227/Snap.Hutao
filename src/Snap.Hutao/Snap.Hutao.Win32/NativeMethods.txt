@@ -2,6 +2,8 @@
 RegCloseKey
 RegOpenKeyExW
 RegNotifyChangeKeyValue
+ConvertStringSidToSid
+ConvertSidToStringSid
 
 // COMCTL32
 DefSubclassProc
@@ -10,6 +12,16 @@ SetWindowSubclass
 
 // DWMAPI
 DwmSetWindowAttribute
+
+// FIREWALLAPI
+NetworkIsolationFreeAppContainers
+NetworkIsolationGetAppContainerConfig
+NetworkIsolationSetAppContainerConfig
+NetworkIsolationEnumAppContainers
+INET_FIREWALL_APP_CONTAINER
+INET_FIREWALL_AC_CAPABILITIES
+INET_FIREWALL_AC_BINARIES
+NETISO_FLAG
 
 // GDI32
 GetDeviceCaps
@@ -99,6 +111,9 @@ HKEY_USERS
 // HRESULT
 E_FAIL
 RPC_E_WRONG_THREAD
+
+// Security
+SID_AND_ATTRIBUTES
 
 // System.Com
 CWMO_FLAGS
